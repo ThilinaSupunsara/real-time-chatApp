@@ -1,39 +1,55 @@
-# Use the official PHP 8.2 with Apache base image
-FROM php:8.2-apache
+# Stage 1: Install PHP dependencies with Composer
+FROM composer:2.7 as composer
+WORKDIR /app
+COPY . .
+# Install --no-dev for production
+RUN composer install --no-dev --no-interaction --optimize-autoloader
 
-# Set working directory
-WORKDIR /var/www/html
+# Stage 2: Build frontend assets with Node
+FROM node:18-alpine as node
 
-# 1. Install system dependencies & PHP/NodeJS
-RUN apt-get update && apt-get install -y \
-    git \
-    unzip \
-    libzip-dev \
-    libpng-dev \
-    nodejs \
-    npm \
-    && docker-php-ext-install pdo_mysql zip exif pcntl bcmath gd \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+# ✅ FIX: Install build tools (like python, make, g++) needed by some npm packages
+RUN apk add --no-cache python3 make g++
 
-# 2. Install Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-
-# 3. Configure Apache to point to Laravel's public folder
-COPY .docker/apache.conf /etc/apache2/sites-available/000-default.conf
-RUN a2enmod rewrite
-
-# 4. Copy application code and set correct permissions
-COPY . /var/www/html
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
-
-# 5. Install Composer (PHP) dependencies
-RUN composer install --no-dev --optimize-autoloader
-
-# 6. Install NPM (frontend) dependencies and build assets for production
+WORKDIR /app
+COPY . .
+# Copy vendor files to satisfy scripts
+COPY --from=composer /app/vendor /app/vendor
 RUN npm install
 RUN npm run build
 
-# 7. Copy and enable the entrypoint script
+# Stage 3: Create the final production image
+FROM php:8.2-apache
+WORKDIR /var/www/html
+
+# Install required PHP extensions for Laravel, Neon (pgsql), Redis, Sockets, and Queues
+RUN apt-get update && apt-get install -y \
+    libzip-dev \
+    libpng-dev \
+    libpq-dev \
+    && apt-get clean && rm -rf /var/lib/apt/lists/* \
+    && docker-php-ext-install zip gd pdo pdo_pgsql bcmath pcntl sockets
+
+# Install Redis extension
+RUN pecl install redis && docker-php-ext-enable redis
+
+# Configure Apache
+COPY .docker/apache.conf /etc/apache2/sites-available/000-default.conf
+RUN a2enmod rewrite
+
+# Copy built app files from previous stages
+COPY --from=composer /app/vendor /var/www/html/vendor
+COPY --from=node /app/public/build /var/www/html/public/build
+COPY . /var/www/html
+
+# Set permissions
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
+    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+
+# Set up entrypoint
 COPY .docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+
+# Default command (will be overridden by render.yaml)
+CMD ["apache2-foreground"]
