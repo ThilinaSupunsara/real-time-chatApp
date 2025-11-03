@@ -15,7 +15,7 @@ WORKDIR /app
 COPY . .
 # Copy vendor files to satisfy scripts
 COPY --from=composer /app/vendor /app/vendor
-RUN npm install
+RUN npm install --legacy-peer-deps
 RUN npm run build
 
 # Stage 3: Create the final production image
