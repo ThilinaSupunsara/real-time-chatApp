@@ -1,0 +1,43 @@
+services:
+  # 1. The main Laravel Web Service
+  - type: web
+    name: chat-app-web
+    env: docker
+    dockerfilePath: ./Dockerfile
+    startCommand: apache2-foreground
+    healthCheckPath: /up
+    plan: starter # Use a paid plan for a production site
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: APP_URL
+        fromService: { type: web, name: chat-app-web, property: host }
+
+  # 2. The Reverb WebSocket Service
+  - type: web
+    name: chat-app-reverb
+    env: docker
+    dockerfilePath: ./Dockerfile
+    startCommand: php artisan reverb:start --host=0.0.0.0 --port=$PORT
+    plan: starter
+    envVars:
+      - key: APP_ENV
+        value: production
+
+  # 3. The Queue Worker Service
+  - type: worker
+    name: chat-app-queue
+    env: docker
+    dockerfilePath: ./Dockerfile
+    startCommand: php artisan queue:work --tries=3
+    plan: free # Free is ok for a queue worker
+    envVars:
+      - key: APP_ENV
+        value: production
+
+  # 4. The Redis Instance (for queues and broadcasting)
+  - name: chat-redis
+    type: redis
+    plan: free
