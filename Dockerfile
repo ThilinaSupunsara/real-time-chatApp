@@ -13,7 +13,7 @@ COPY . .
 COPY --from=composer /app/vendor /app/vendor
 
 # ✅ FIX: Added --legacy-peer-deps to ignore eresolve errors
-RUN npm install --legacy-peer-deps
+error: failed to solve: process "/bin/sh -c npm run build" did not complete successfully: exit code: 1
 
 RUN npm run build
 
