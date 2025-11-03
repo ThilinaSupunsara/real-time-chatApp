@@ -2,26 +2,26 @@
 FROM composer:2.7 as composer
 WORKDIR /app
 COPY . .
-# Install --no-dev for production
 RUN composer install --no-dev --no-interaction --optimize-autoloader
 
 # Stage 2: Build frontend assets with Node
 FROM node:18-alpine as node
-
-# FIX: Install build tools (like python, make, g++) needed by some npm packages
 RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
 COPY . .
-# Copy vendor files to satisfy scripts
 COPY --from=composer /app/vendor /app/vendor
 
+# ✅ FIX: Added --legacy-peer-deps to ignore eresolve errors
+RUN npm install --legacy-peer-deps
+
+RUN npm run build
 
 # Stage 3: Create the final production image
 FROM php:8.2-apache
 WORKDIR /var/www/html
 
-# Install required PHP extensions for Laravel, Neon (pgsql), Redis, Sockets, and Queues
+# Install required PHP extensions
 RUN apt-get update && apt-get install -y \
     libzip-dev \
     libpng-dev \
@@ -29,7 +29,6 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean && rm -rf /var/lib/apt/lists/* \
     && docker-php-ext-install zip gd pdo pdo_pgsql bcmath pcntl sockets
 
-# Install Redis extension
 RUN pecl install redis && docker-php-ext-enable redis
 
 # Configure Apache
@@ -45,13 +44,9 @@ COPY . /var/www/html
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
     && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
-    RUN npm install --legacy-peer-deps
-RUN npm run build
-
 # Set up entrypoint
 COPY .docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
-# Default command (will be overridden by render.yaml)
 CMD ["apache2-foreground"]
