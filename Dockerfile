@@ -7,6 +7,10 @@ RUN composer install --no-dev --no-interaction --optimize-autoloader
 
 # Stage 2: Build frontend assets with Node
 FROM node:18-alpine as node
+
+# ✅ FIX: Install build tools (like python, make, g++) needed by some npm packages
+RUN apk add --no-cache python3 make g++
+
 WORKDIR /app
 COPY . .
 # Copy vendor files to satisfy scripts

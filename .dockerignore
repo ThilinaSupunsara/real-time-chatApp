@@ -1,0 +1,8 @@
+# Ignore local dependencies
+node_modules
+vendor
+
+# Ignore system and IDE files
+.git
+.DS_Store
+.vscode
