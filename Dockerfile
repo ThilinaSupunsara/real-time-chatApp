@@ -15,8 +15,7 @@ WORKDIR /app
 COPY . .
 # Copy vendor files to satisfy scripts
 COPY --from=composer /app/vendor /app/vendor
-RUN npm install --legacy-peer-deps
-RUN npm run build
+
 
 # Stage 3: Create the final production image
 FROM php:8.2-apache
@@ -45,6 +44,9 @@ COPY . /var/www/html
 # Set permissions
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
     && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+
+    RUN npm install --legacy-peer-deps
+RUN npm run build
 
 # Set up entrypoint
 COPY .docker/entrypoint.sh /usr/local/bin/entrypoint.sh
