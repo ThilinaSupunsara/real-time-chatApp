@@ -4,11 +4,14 @@ set -e
 if [ "$1" = "apache2-foreground" ]; then
     echo "Running as WEB service. Caching config and running migrations..."
 
-    # ✅ FIX: Run artisan commands as the 'www-data' user
-    # This creates cache files with the correct owner.
-    su -s /bin/sh -c "php artisan config:cache" www-data
-    su -s /bin/sh -c "php artisan route:cache" www-data
+    # Run artisan commands (as root)
+    php artisan config:cache
+    php artisan route:cache
+    php artisan migrate --force
 
+    # ✅ FIX: After commands are run, force ownership back to www-data
+    # This gives Apache permission to read the new cache files.
+    chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 else
     echo "Running as WORKER/REVERB service. Skipping setup."
 fi
