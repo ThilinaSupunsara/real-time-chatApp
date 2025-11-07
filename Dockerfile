@@ -12,11 +12,11 @@ WORKDIR /app
 COPY . .
 COPY --from=composer /app/vendor /app/vendor
 
-# ✅ FIX 1: Give Node.js more memory for the build process
-ENV NODE_OPTIONS=--max-old-space-size=4096
+# ✅ FIX: Removed --legacy-peer-deps because we have a clean package-lock.json
+RUN npm install
 
-# ✅ FIX 2: Keep the legacy flag to get past dependency errors
-RUN npm install --legacy-peer-deps
+# ✅ FIX: Added memory limit for the build process
+ENV NODE_OPTIONS=--max-old-space-size=4096
 RUN npm run build
 
 # Stage 3: Create the final production image
