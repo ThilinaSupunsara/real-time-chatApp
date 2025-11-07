@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y \
     unzip \
     supervisor \
     ca-certificates \
+    libpq-dev \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # 3. Install Node.js (Version 18)
@@ -35,7 +36,8 @@ RUN npm install -g npm@latest
 # 4. Install required PHP extensions
 # --- FIX: gd configure කිරීම සහ mbstring (exif වලට) එකතු කිරීම ---
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg
-RUN docker-php-ext-install pdo pdo_mysql bcmath zip gd mbstring exif intl
+
+RUN docker-php-ext-install pdo pdo_mysql bcmath zip gd mbstring exif intl pdo_pgsql pcntl
 
 # 5. Apache "mod_rewrite" enable
 RUN a2enmod rewrite

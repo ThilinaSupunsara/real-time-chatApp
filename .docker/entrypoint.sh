@@ -8,9 +8,9 @@ php artisan config:cache
 php artisan route:cache
 php artisan view:cache
 
-# Database migrations run කිරීම
-echo "Running database migrations..."
-php artisan migrate --force
+# --- Storage link එක සෑදීම සඳහා මෙය එකතු කරන්න ---
+echo "Linking storage..."
+php artisan storage:link
 
 # Script එකට එන මුල් command එක (ඒ කියන්නේ "apache2-foreground") run කිරීම
 exec "$@"
