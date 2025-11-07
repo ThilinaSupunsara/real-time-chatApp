@@ -1,20 +1,16 @@
 #!/bin/sh
+# 'set -e' දැම්මම, command එකක් fail වුනොත් script එක එතනින්ම නවතිනවා.
 set -e
 
-if [ "$1" = "apache2-foreground" ]; then
-    echo "Running as WEB service. Caching config and running migrations..."
+# Production එකට අවශ්‍ය artisan commands
+echo "Running production optimizations..."
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
 
-    # Run artisan commands (as root)
-    php artisan config:cache
-    php artisan route:cache
+# Database migrations run කිරීම
+echo "Running database migrations..."
+php artisan migrate --force
 
-
-    # ✅ FIX: After commands are run, force ownership back to www-data
-    # This gives Apache permission to read the new cache files.
-    chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
-else
-    echo "Running as WORKER/REVERB service. Skipping setup."
-fi
-
-# Finally, execute the main command (e.g., "apache2-foreground")
+# Script එකට එන මුල් command එක (ඒ කියන්නේ "apache2-foreground") run කිරීම
 exec "$@"

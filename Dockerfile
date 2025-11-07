@@ -1,72 +1,44 @@
-# ============================================================
-# Stage 1: Install PHP dependencies with Composer
-# ============================================================
-FROM composer:2.7 as composer
-WORKDIR /app
-COPY . .
-RUN composer install --no-dev --no-interaction --optimize-autoloader
-
-# ============================================================
-# Stage 2: Build frontend assets with Node (Vite)
-# ============================================================
-FROM node:18 as node
-WORKDIR /app
-
-COPY . .
-COPY --from=composer /app/vendor /app/vendor
-
-RUN mkdir -p public/build
-COPY .env .env
-RUN npm ci --legacy-peer-deps --unsafe-perm
-ENV NODE_OPTIONS="--max-old-space-size=4096"
-RUN npm run build || (echo "❌ Build failed, showing logs:" && cat /root/.npm/_logs/*-debug-*.log)
-
-# ============================================================
-# Stage 3: Create the final production image
-# ============================================================
+# 1. Base Image එක (PHP 8.2 සහ Apache එක්ක)
 FROM php:8.2-apache
-WORKDIR /var/www/html
 
-# Install required PHP extensions
-RUN apt-get update && apt-get install -y \
-    libzip-dev libpng-dev libpq-dev \
-    && apt-get clean && rm -rf /var/lib/apt/lists/* \
-    && docker-php-ext-install zip gd pdo pdo_pgsql bcmath pcntl sockets
+# 2. අවශ්‍ය PHP extensions install කිරීම
+RUN docker-php-ext-install pdo pdo_mysql bcmath
 
-# Install and enable Redis extension
-RUN pecl install redis && docker-php-ext-enable redis
-
-# Enable Apache rewrite module (for Laravel routes)
+# 3. Apache "mod_rewrite" enable කිරීම
 RUN a2enmod rewrite
 
-# Configure Apache for Render (port 10000)
-RUN echo '<VirtualHost *:10000>\n\
-    DocumentRoot /var/www/html/public\n\
-    <Directory /var/www/html/public>\n\
-        AllowOverride All\n\
-        Require all granted\n\
-    </Directory>\n\
-    ErrorLog ${APACHE_LOG_DIR}/error.log\n\
-    CustomLog ${APACHE_LOG_DIR}/access.log combined\n\
-</VirtualHost>' > /etc/apache2/sites-available/000-default.conf
+# 4. Composer install කිරීම
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Render requires app to listen on port 10000
-ENV PORT=10000
-EXPOSE 10000
+# 5. Working Directory එක set කිරීම
+WORKDIR /var/www/html
 
-# Copy built assets and code from previous stages
-COPY --from=composer /app/vendor /var/www/html/vendor
-COPY --from=node /app/public/build /var/www/html/public/build
-COPY . /var/www/html
+# 6. Apache Virtual Host config file එක copy කිරීම
+COPY .docker/apache.conf /etc/apache2/sites-available/000-default.conf
 
-# Set correct base permissions
-RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+# 7. Project files ඔක්කොම copy කිරීම
+COPY . .
 
-# Entrypoint script
+# 8. Composer dependencies install කිරීම
+RUN composer install --no-dev --optimize-autoloader
+
+# 9. Storage සහ Cache වලට permissions දීම
+RUN chown -R www-data:www-data storage bootstrap/cache
+RUN chmod -R 775 storage bootstrap/cache
+
+# 10. --- අලුතින් එකතු කළ කොටස ---
+# Entrypoint script එක copy කිරීම
 COPY .docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+
+# Entrypoint script එක executable (run කරන්න පුළුවන්) කිරීම
 RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Container එකේ Entrypoint එක විදියට set කිරීම
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
-# Start Apache
+# Apache server එක run කරන base image එකේ default command එක
 CMD ["apache2-foreground"]
+# --- අලුත් කොටස අවසානයි ---
+
+# 11. Port එක Expose කිරීම
+EXPOSE 80
