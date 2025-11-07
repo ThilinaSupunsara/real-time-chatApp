@@ -17,19 +17,19 @@ WORKDIR /app
 COPY . .
 COPY --from=composer /app/vendor /app/vendor
 
-# ✅ Ensure public/build directory exists and is writable
-RUN mkdir -p public/build && chmod -R 777 public
+# Ensure public/build directory exists
+RUN mkdir -p public/build
 
-# ✅ Copy environment file for Vite
+# Copy environment file for Vite
 COPY .env .env
 
-# ✅ Install dependencies safely
+# Install dependencies safely
 RUN npm ci --legacy-peer-deps --unsafe-perm
 
-# ✅ Increase Node memory limit for large builds
+# Increase Node memory limit for large builds
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
-# ✅ Run Vite build (print logs on failure)
+# Run Vite build (print logs on failure)
 RUN npm run build || (echo "❌ Build failed, showing logs:" && cat /root/.npm/_logs/*-debug-*.log)
 
 
@@ -51,7 +51,7 @@ RUN pecl install redis && docker-php-ext-enable redis
 # Enable Apache rewrite module (for Laravel routes)
 RUN a2enmod rewrite
 
-# ✅ Configure Apache for Render (port 10000)
+# Configure Apache for Render (port 10000)
 RUN echo '<VirtualHost *:10000>\n\
     DocumentRoot /var/www/html/public\n\
     <Directory /var/www/html/public>\n\
@@ -62,7 +62,7 @@ RUN echo '<VirtualHost *:10000>\n\
     CustomLog ${APACHE_LOG_DIR}/access.log combined\n\
 </VirtualHost>' > /etc/apache2/sites-available/000-default.conf
 
-# ✅ Render requires app to listen on port 10000
+# Render requires app to listen on port 10000
 ENV PORT=10000
 EXPOSE 10000
 
@@ -71,8 +71,8 @@ COPY --from=composer /app/vendor /var/www/html/vendor
 COPY --from=node /app/public/build /var/www/html/public/build
 COPY . /var/www/html
 
-# Set correct permissions for Laravel
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
+# ✅ FIX: Set correct permissions for the *entire* application
+RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
 # Entrypoint script
@@ -80,5 +80,5 @@ COPY .docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
-# Start Apache (Render detects automatically)
+# Start Apache
 CMD ["apache2-foreground"]
