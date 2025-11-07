@@ -2,23 +2,20 @@
 FROM composer:2.7 as composer
 WORKDIR /app
 COPY . .
-# Install --no-dev for production
 RUN composer install --no-dev --no-interaction --optimize-autoloader
 
 # Stage 2: Build frontend assets with Node
 FROM node:18-alpine as node
-
-# Install build tools (like python, make, g++) needed by some npm packages
 RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
 COPY . .
-# Copy vendor files to satisfy scripts
 COPY --from=composer /app/vendor /app/vendor
 
-# ✅ THIS IS THE CORRECTED SECTION
-# It installs dependencies and then builds the assets.
-# The error message you pasted is removed.
+# ✅ FIX 1: Give Node.js more memory for the build process
+ENV NODE_OPTIONS=--max-old-space-size=4096
+
+# ✅ FIX 2: Keep the legacy flag to get past dependency errors
 RUN npm install --legacy-peer-deps
 RUN npm run build
 
@@ -26,7 +23,7 @@ RUN npm run build
 FROM php:8.2-apache
 WORKDIR /var/www/html
 
-# Install required PHP extensions for Laravel, Neon (pgsql), Redis, Sockets, and Queues
+# Install required PHP extensions
 RUN apt-get update && apt-get install -y \
     libzip-dev \
     libpng-dev \
@@ -34,7 +31,6 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean && rm -rf /var/lib/apt/lists/* \
     && docker-php-ext-install zip gd pdo pdo_pgsql bcmath pcntl sockets
 
-# Install Redis extension
 RUN pecl install redis && docker-php-ext-enable redis
 
 # Configure Apache
@@ -55,5 +51,4 @@ COPY .docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
-# Default command (will be overridden by render.yaml)
 CMD ["apache2-foreground"]
