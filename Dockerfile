@@ -27,10 +27,9 @@ RUN npm run build || (echo "❌ Build failed, showing logs:" && cat /root/.npm/_
 FROM php:8.2-apache
 WORKDIR /var/www/html
 
-# ✅ FIX: Added 'su-exec' for permissions handling
+# Install required PHP extensions
 RUN apt-get update && apt-get install -y \
     libzip-dev libpng-dev libpq-dev \
-    su-exec \
     && apt-get clean && rm -rf /var/lib/apt/lists/* \
     && docker-php-ext-install zip gd pdo pdo_pgsql bcmath pcntl sockets
 
