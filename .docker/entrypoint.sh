@@ -7,7 +7,7 @@ if [ "$1" = "apache2-foreground" ]; then
     # Run artisan commands (as root)
     php artisan config:cache
     php artisan route:cache
-    php artisan migrate --force
+
 
     # ✅ FIX: After commands are run, force ownership back to www-data
     # This gives Apache permission to read the new cache files.
