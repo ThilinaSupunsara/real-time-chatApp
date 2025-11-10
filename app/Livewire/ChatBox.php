@@ -72,7 +72,7 @@ class ChatBox extends Component
     {
         $this->page = 1;
         $userId = Auth::id();
-        $conversation = Conversation::whereHas('users', fn($q) => $q->where('user_id', $userId))->whereHas('users', fn($q) => $q->where('user_id', $friendId))->withCount('users')->having('users_count', 2)->first();
+        $conversation = Conversation::whereHas('users', fn($q) => $q->where('user_id', $userId))->whereHas('users', fn($q) => $q->where('user_id', $friendId))->has('users', '=', 2)->first();
 
         if (!$conversation) {
             $conversation = Conversation::create();
